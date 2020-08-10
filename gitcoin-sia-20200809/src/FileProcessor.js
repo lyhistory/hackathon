@@ -2,9 +2,10 @@ import React, { Component } from "react";
 import ReactDOM from "react-dom";
 import CryptoJS from 'crypto-js'
 import ReactFileReader from 'react-file-reader'
-import { Modal, Button, Tab, Nav, Col, Row, InputGroup, FormControl } from 'react-bootstrap'
+import { Modal, Button, Tab, Nav, Col, Row, InputGroup, FormControl, Card } from 'react-bootstrap'
 import Base64Downloader from 'react-base64-downloader'
 import { SkynetClient } from "skynet-js";
+import Joyride, { CallBackProps, STATUS, Step, StoreHelpers } from 'react-joyride';
 
 class FileProcessor extends Component {
     constructor() {
@@ -19,7 +20,59 @@ class FileProcessor extends Component {
             enPasswd: "",
             skylink: "",
             dePasswd: "",
-            decryptedFileBase64: ""
+            decryptedFileBase64: "",
+            showResult: false,
+            result: "NoData",
+            disableDownload: true,
+            downloadStatus: "No Data",
+            run: true,
+            steps: [
+                {
+                    content: <h2>Let me guide you through!</h2>,
+                    placement: 'center',
+                    target: 'body',
+                },
+                {
+                    content: <h2>Intro: Encryption</h2>,
+                    target: '.en-step-0',
+                },
+                {
+                    content: <h2>Select a file you want to encrypt</h2>,
+                    floaterProps: {
+                        disableAnimation: true,
+                    },
+                    spotlightPadding: 20,
+                    target: '.en-step-1',
+                },
+                {
+                    content: <h2>Key in sharing code</h2>,
+                    floaterProps: {
+                        disableAnimation: true,
+                    },
+                    spotlightPadding: 20,
+                    target: '.en-step-2',
+                },
+                {
+                    content: <h2>Click to encrypt</h2>,
+                    floaterProps: {
+                        disableAnimation: true,
+                    },
+                    spotlightPadding: 20,
+                    target: '.en-step-3',
+                },
+                {
+                    content: <h2>Result will be generated here, sample: skylink: https://siasky.net/XAGEzqYP2q3cPquOoqBuHi--GfH41pvHygv7Ok6DWA1mgg/ with sharing code: 123</h2>,
+                    floaterProps: {
+                        disableAnimation: true,
+                    },
+                    spotlightPadding: 20,
+                    target: '.en-step-4',
+                },
+                {
+                    content: <h2>For Decryption, simply provide skylink and the sharing code to decrypt</h2>,
+                    target: '.de-step-0',
+                }
+            ]
         };
     }
 
@@ -53,7 +106,11 @@ class FileProcessor extends Component {
             encryptedFileBase64: "",
             enPasswd: "",
             skylink: "",
-            dePasswd: ""
+            dePasswd: "",
+            showResult: false,
+            result: "NoData",
+            disableDownload: true,
+            downloadStatus: "No Data"
         })
     }
 
@@ -104,6 +161,11 @@ class FileProcessor extends Component {
             })
 
             console.log("skylink:" + skylink)
+            var result = "skylink: https://siasky.net/" + skylink + " with Decrption code: " + this.state.enPasswd
+            this.setState({
+                showResult: true,
+                result: result
+            })
         } catch (error) {
             console.log(error);
         }
@@ -115,7 +177,7 @@ class FileProcessor extends Component {
             client.download(skylink);
         } catch (error) {
             console.log(error);
-            this.setState({ showTips: true, tips: "Download Error:"+error.toString() })
+            this.setState({ showTips: true, tips: "Download Error:" + error.toString() })
         }
     }
 
@@ -132,26 +194,15 @@ class FileProcessor extends Component {
             var encryptedFile = this.data2File(this.state.encryptedFileBase64)
 
             this.upload2skynet(encryptedFile)
-
-            // var originalText = this.handleDecryption()
-            // var decryptedFile = this.dataURL2File(originalText, this.state.originalFileName)
-            // console.log(decryptedFile)
         })
 
-
-        // fileReader = new FileReader()
-        // fileReader.onload = (event) => {
-        //     console.log("filereader onload")
-        //     console.log(event.target.result)
-        //     encryptedFile = CryptoJS.AES.encrypt(event.target.result, password);
-        //     downloadButton.setAttribute('href', 'data:application/octet-stream,' + encryptedFile);
-        //     downloadButton.setAttribute('download', file.name + '.encrypted');
-        // }
-        // fileReader.readAsDataURL(this.state.originalFile)
     }
     handleDecryption = () => {
         //downloadFromSkynet(this.state.skylink)
-
+        this.setState({
+            showResult: true,
+            result: "processing..."
+        })
         fetch(this.state.skylink)
             .then((response) => {
                 return response.text();
@@ -166,31 +217,71 @@ class FileProcessor extends Component {
 
                     this.setState({ decryptedFileBase64: originalText })
 
-                    this.setState({ showTips: true, tips: "ready to download, please click the download button!" })
+                    this.setState({
+                        showTips: true,
+                        tips: "ready to download, please click the download button!",
+                        disableDownload: false,
+                        downloadStatus: "Click To Download!"
+                    })
 
                     console.log("originalText:")
                     console.log(originalText)
                 } catch (error) {
                     console.log(error);
-                    this.setState({ showTips: true, tips: "Decryption Error:"+error.toString()+" ! make sure the password is correct" })
+                    this.setState({ showTips: true, tips: "Decryption Error:" + error.toString() + " ! make sure the password is correct" })
                 }
             }
             );
     }
 
+    getHelpers = (helpers: StoreHelpers) => {
+        this.helpers = helpers;
+    }
+    handleJoyrideCallback = (data: CallBackProps) => {
+        const { status, type } = data;
+        const finishedStatuses: string[] = [STATUS.FINISHED, STATUS.SKIPPED];
+
+        if (finishedStatuses.includes(status)) {
+            this.setState({ run: false });
+        }
+
+        // tslint:disable:no-console
+        console.groupCollapsed(type);
+        console.log(data);
+        console.groupEnd();
+        // tslint:enable:no-console
+    }
+
     render() {
+        const { run, steps } = this.state;
         return (
             <>
-                <div class="container-fluid">
+                <Joyride
+                    callback={this.handleJoyrideCallback}
+                    continuous={true}
+                    getHelpers={this.getHelpers}
+                    run={run}
+                    scrollToFirstStep={true}
+                    showProgress={true}
+                    showSkipButton={true}
+                    steps={steps}
+                    styles={{
+                        options: {
+                            zIndex: 10000,
+                        },
+                    }}
+                />
+                <h1 style={{ 'text-align': 'center' }}>POC For Hackathon: Private Info Generator</h1>
+                <div class="container-fluid mt-5">
                     <Tab.Container id="left-tabs-example" defaultActiveKey="first">
                         <Row>
                             <Col sm={3}>
                                 <Nav variant="pills" className="flex-column">
                                     <Nav.Item>
-                                        <Nav.Link eventKey="first">Encryption</Nav.Link>
+                                        <Nav.Link eventKey="first" className="en-step-0">Encryption</Nav.Link>
                                     </Nav.Item>
                                     <Nav.Item>
-                                        <Nav.Link eventKey="second">Decryption</Nav.Link>
+                                        <Nav.Link eventKey="second" className="de-step-0">Decryption</Nav.Link>
                                     </Nav.Item>
                                 </Nav>
                             </Col>
@@ -200,32 +291,39 @@ class FileProcessor extends Component {
                                         <div class="container-fluid">
                                             <div class="input-group-sm">
                                                 <ReactFileReader base64={true} handleFiles={this.handleSelectFileChange}>
-                                                    <button class="browse-btn btn btn-block btn-secondary btn-sm">{this.state.TextSelectFile}</button>
+                                                    <button class="browse-btn btn btn-block btn-secondary btn-sm en-step-1">{this.state.TextSelectFile}</button>
                                                 </ReactFileReader>
                                             </div>
                                             <div class="">
-                                                <InputGroup className="mb-3">
+                                                <InputGroup className="mb-3 en-step-2">
                                                     <InputGroup.Prepend>
-                                                        <InputGroup.Text id="basic-addon1">Password:</InputGroup.Text>
+                                                        <InputGroup.Text id="basic-addon1">Encryption Code:</InputGroup.Text>
                                                     </InputGroup.Prepend>
                                                     <FormControl
-                                                        type="password"
                                                         value={this.state.enPasswd} ref={input => this.inputEnPassword = input} onChange={e => this.handleEnPasswordChange(e.target.value)}
-                                                        placeholder="Keyin Encryption Password"
+                                                        placeholder="Keyin Encryption Code"
                                                         aria-label="EnPassword"
                                                         aria-describedby="basic-addon1"
                                                     />
                                                 </InputGroup>
-                                                <button type="button" class="btn btn-sm btn-primary encrypt" onClick={this.handleEncryption}>Encrypt</button>
+                                                <button type="button" class="btn btn-sm btn-primary encrypt en-step-3" onClick={this.handleEncryption}>Encrypt</button>
                                             </div>
+                                            <Card show={this.state.showResult} className="en-step-4" border="primary" bg="success" text="dark">
+                                                <Card.Header>Encryption Result</Card.Header>
+                                                <Card.Body>
+                                                    <Card.Title>Copy and Share/Save the generated info below::</Card.Title>
+                                                    <Card.Text>{this.state.result}</Card.Text>
+                                                </Card.Body>
+                                            </Card>
                                             <div class="input-group-sm">
                                                 <a href="javascript:void(0)" class="reset btn btn-block btn-danger" onClick={this.reset}>Reset</a>
                                             </div>
                                         </div>
+
                                     </Tab.Pane>
                                     <Tab.Pane eventKey="second">
                                         <div class="container-fluid">
-                                            <div class="input-group-sm">
+                                            <div class="input-group-sm de-step-1">
                                                 <InputGroup className="mb-3">
                                                     <InputGroup.Prepend>
                                                         <InputGroup.Text id="basic-addon1">SkynetLink:</InputGroup.Text>
@@ -239,22 +337,21 @@ class FileProcessor extends Component {
                                                 </InputGroup>
                                             </div>
                                             <div class="">
-                                                <InputGroup className="mb-3">
+                                                <InputGroup className="mb-3 de-step-2">
                                                     <InputGroup.Prepend>
-                                                        <InputGroup.Text id="basic-addon1">Password:</InputGroup.Text>
+                                                        <InputGroup.Text id="basic-addon1">Decryption Code:</InputGroup.Text>
                                                     </InputGroup.Prepend>
                                                     <FormControl
-                                                        type="password"
                                                         value={this.state.dePasswd} ref={input => this.inputDePassword = input} onChange={e => this.handleDePasswordChange(e.target.value)}
-                                                        placeholder="Keyin Decryption Password"
+                                                        placeholder="Keyin Decryption Code"
                                                         aria-label="DePassword"
                                                         aria-describedby="basic-addon1"
                                                     />
                                                 </InputGroup>
-                                                <button type="button" class="btn btn-sm btn-primary decrypt" onClick={this.handleDecryption}>Decrypt</button>
+                                                <button type="button" class="btn btn-sm btn-primary decrypt de-step-3" onClick={this.handleDecryption}>Decrypt</button>
                                             </div>
-                                            <Base64Downloader class="btn btn-sm btn-success" base64={this.state.decryptedFileBase64} downloadName="decrypted">
-                                                Click to download
+                                            <Base64Downloader disabled={this.state.disableDownload} className="btn btn-sm btn-success de-step-4" base64={this.state.decryptedFileBase64} downloadName="decrypted">
+                                                {this.state.downloadStatus}
                                             </Base64Downloader>
                                             <div class="input-group-sm">
                                                 <a href="javascript:void(0)" class="reset btn btn-block btn-danger" onClick={this.reset}>Reset</a>
