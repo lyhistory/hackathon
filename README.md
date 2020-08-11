@@ -2,7 +2,7 @@
 demo:
 
 <video width="600" height="400" controls>
-  <source src="demo.mov" type="video/mp4">
+  <source src="demo.mp4" type="video/mp4">
 </video>
 
 
