@@ -1,9 +1,7 @@
 
 demo:
 
-<video width="600" height="400" controls>
-  <source src="demo.mp4" type="video/mp4">
-</video>
+[![](http://img.youtube.com/vi/POLzKvLgmtw/0.jpg)](http://www.youtube.com/watch?v=POLzKvLgmtw "private file sharing")
 
 
 how to use:
